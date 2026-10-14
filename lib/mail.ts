@@ -5,18 +5,19 @@ function escapeHtml(value: string) {
 }
 
 export async function sendMail(input: { to: string; subject: string; heading: string; body: string; url: string; action: string; detail: string }) {
-  const smtpHost = process.env.ZENITH_SMTP_HOST || process.env.SMTP_HOST;
-  const smtpFrom = process.env.ZENITH_SMTP_FROM || process.env.SMTP_FROM;
-  const smtpUsername = process.env.ZENITH_SMTP_USER || process.env.SMTP_USERNAME;
-  const smtpPassword = process.env.ZENITH_SMTP_PASS || process.env.SMTP_PASSWORD;
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpFrom = process.env.SMTP_FROM;
+  const smtpUsername = process.env.SMTP_USERNAME;
+  const smtpPassword = process.env.SMTP_PASSWORD;
   if (!smtpHost || !smtpFrom) {
     throw new Error("Email is not configured. Set SMTP_HOST and SMTP_FROM on the server.");
   }
-  const port = Number(process.env.ZENITH_SMTP_PORT || process.env.SMTP_PORT || 587);
+  const port = Number(process.env.SMTP_PORT || 587);
   const transport = nodemailer.createTransport({
     host: smtpHost,
     port,
     secure: process.env.SMTP_SECURE === "true" || port === 465,
+    requireTLS: port === 587,
     ...(smtpUsername ? {
       auth: { user: smtpUsername, pass: smtpPassword },
     } : {}),

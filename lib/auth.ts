@@ -1,11 +1,14 @@
 import { betterAuth } from "better-auth";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { cache } from "react";
 import { pool } from "@/lib/db";
 import { sendMail } from "@/lib/mail";
+import { getAppUrl } from "@/lib/app-url";
 
-export const auth = betterAuth({
+export const getAuth = cache(async () => betterAuth({
   appName: "Twello",
-  baseURL: process.env.ZENITH_PUBLIC_URL || process.env.BETTER_AUTH_URL,
+  baseURL: await getAppUrl(),
   secret: process.env.BETTER_AUTH_SECRET,
   database: pool,
   emailAndPassword: {
@@ -28,10 +31,22 @@ export const auth = betterAuth({
   },
   rateLimit: { enabled: true, storage: "database", window: 60, max: 60 },
   session: { expiresIn: 60 * 60 * 24 * 14, updateAge: 60 * 60 * 24 },
-});
+}));
+
+export async function getSession() {
+  const requestHeaders = await headers();
+  if (!requestHeaders.get("cookie")) return null;
+  return (await getAuth()).api.getSession({ headers: requestHeaders });
+}
 
 export async function requireUser() {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await getSession();
   if (!session?.user.emailVerified) throw new Error("Sign in with a verified email to continue.");
+  return session.user;
+}
+
+export async function requirePageUser() {
+  const session = await getSession();
+  if (!session?.user.emailVerified) redirect("/login");
   return session.user;
 }

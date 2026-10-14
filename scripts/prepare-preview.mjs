@@ -13,5 +13,5 @@ await cp(source, destination, {
   },
 });
 await mkdir(destination, { recursive: true });
-await writeFile(join(destination, '.env.local'), `BETTER_AUTH_SECRET=${randomBytes(48).toString('base64url')}\nPGHOST=db\nPGPORT=5432\nPGUSER=twello\nPGDATABASE=twello\nSMTP_HOST=mail\nSMTP_PORT=1025\nSMTP_FROM="Twello <hello@twello.local>"\nSMTP_SECURE=false\nPREVIEW_EMAIL_INBOX=true\n`, { mode: 0o600 });
+await writeFile(join(destination, '.env.local'), `BETTER_AUTH_SECRET=${randomBytes(48).toString('base64url')}\nZENITH_PREVIEW=true\nPGHOST=db\nPGPORT=5432\nPGUSER=twello\nPGDATABASE=twello\nSMTP_HOST=mail\nSMTP_PORT=1025\nSMTP_FROM="Twello <hello@twello.local>"\nSMTP_SECURE=false\nPREVIEW_EMAIL_INBOX=true\n`, { mode: 0o600 });
 process.stdout.write(`${destination}\n`);

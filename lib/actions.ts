@@ -4,6 +4,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { PoolClient } from "pg";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth";
+import { getAppUrl } from "@/lib/app-url";
 import { pool, transaction } from "@/lib/db";
 import { sendBoardInvite } from "@/lib/mail";
 import type { ActionResult, Invite } from "@/lib/types";
@@ -266,7 +267,7 @@ export async function createInvite(input: unknown): Promise<ActionResult<{ url: 
     const token = randomBytes(32).toString("base64url");
     const inviteId = randomUUID();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const appUrl = z.url().parse(process.env.ZENITH_PUBLIC_URL || process.env.BETTER_AUTH_URL);
+    const appUrl = await getAppUrl();
     const url = new URL(`/invite/${token}`, appUrl).toString();
     const boardTitle = await transaction(async (client) => {
       const board = await lockBoard(client, values.boardId, user.id, "owner");

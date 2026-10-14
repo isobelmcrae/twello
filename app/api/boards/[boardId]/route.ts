@@ -1,5 +1,4 @@
-import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { getBoard } from "@/lib/boards";
 
 export const dynamic = "force-dynamic";
@@ -8,7 +7,7 @@ const responseHeaders = { "Cache-Control": "private, no-store, max-age=0" };
 
 export async function GET(_request: Request, context: { params: Promise<{ boardId: string }> }) {
   try {
-    const session = await auth.api.getSession({ headers: await headers() });
+    const session = await getSession();
     if (!session) return Response.json({ error: "Sign in to view this board." }, { status: 401, headers: responseHeaders });
     const { boardId } = await context.params;
     const board = await getBoard(boardId, session.user.id);

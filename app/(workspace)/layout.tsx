@@ -1,10 +1,9 @@
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { getSession } from "@/lib/auth";
 import { listBoards } from "@/lib/boards";
 import { WorkspaceShell } from "@/components/workspace/shell";
 export default async function WorkspaceLayout({children}:{children:React.ReactNode}){
- const session=await auth.api.getSession({headers:await headers()});
+ const session=await getSession();
  if(!session?.user.emailVerified)redirect("/login");
  const boards=await listBoards(session.user.id);
  const user={id:session.user.id,name:session.user.name,email:session.user.email,image:session.user.image??null};
