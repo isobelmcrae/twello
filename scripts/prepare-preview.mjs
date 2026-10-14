@@ -1,4 +1,4 @@
-import { cp, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { copyFile, cp, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
@@ -13,5 +13,6 @@ await cp(source, destination, {
   },
 });
 await mkdir(destination, { recursive: true });
-await writeFile(join(destination, '.env.local'), `BETTER_AUTH_SECRET=${randomBytes(48).toString('base64url')}\nZENITH_PREVIEW=true\nPGHOST=db\nPGPORT=5432\nPGUSER=twello\nPGDATABASE=twello\nSMTP_HOST=mail\nSMTP_PORT=1025\nSMTP_FROM="Twello <hello@twello.local>"\nSMTP_SECURE=false\nPREVIEW_EMAIL_INBOX=true\n`, { mode: 0o600 });
+await copyFile(join(source, "zenith-preview.yml"), join(destination, "zenith-compose.yml"));
+await writeFile(join(destination, '.env.local'), `BETTER_AUTH_SECRET=${randomBytes(48).toString('base64url')}\nZENITH_PREVIEW=true\nPGHOST=db\nPGPORT=5432\nPGUSER=twello\nPGDATABASE=twello\n`, { mode: 0o600 });
 process.stdout.write(`${destination}\n`);

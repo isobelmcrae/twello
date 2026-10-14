@@ -1,7 +1,7 @@
 x-zenith:
   catalog:
     name: Twello
-    description: Private shared kanban boards with sticky notes, task assignments, and email invitations.
+    description: Private shared kanban boards with sticky notes, task assignments, and shared invitation links.
     authors: [Isobel]
     source: https://github.com/isobelmcrae/twello
     license: UNLICENSED
@@ -21,21 +21,7 @@ x-zenith:
     BETTER_AUTH_URL:
       alias: ZENITH_PUBLIC_URL
       services: [web]
-    SMTP_HOST:
-      alias: ZENITH_SMTP_HOST
-      services: [web]
-    SMTP_PORT:
-      alias: ZENITH_SMTP_PORT
-      services: [web]
-    SMTP_USERNAME:
-      alias: ZENITH_SMTP_USER
-      services: [web]
-    SMTP_PASSWORD:
-      alias: ZENITH_SMTP_PASS
-      services: [web]
-    SMTP_FROM:
-      template: '{ZENITH_SMTP_DISPLAY} <{ZENITH_SMTP_FROM}>'
-      services: [web]
+
 services:
   web:
     build: .
@@ -46,7 +32,6 @@ services:
       PGPORT: "5432"
       PGUSER: twello
       PGDATABASE: twello
-      SMTP_SECURE: "false"
     depends_on:
       db:
         condition: service_healthy

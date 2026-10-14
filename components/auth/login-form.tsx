@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
@@ -15,7 +14,6 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
   const [mode, setMode] = useState("login");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-  const [verificationEmail, setVerificationEmail] = useState("");
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -28,28 +26,13 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
         ? await authClient.signUp.email({ name: String(form.get("name") || "").trim(), email, password, callbackURL })
         : await authClient.signIn.email({ email, password, callbackURL });
       if (result.error) {
-        if (result.error.code === "EMAIL_NOT_VERIFIED") setVerificationEmail(email);
-        else setError(result.error.message || "Unable to sign in. Try again.");
-      } else if (mode === "signup") {
-        setVerificationEmail(email);
+        setError(result.error.message || "Unable to sign in. Try again.");
       } else {
         router.push(nextPath); router.refresh();
       }
     } catch { setError("Could not connect. Try again in a moment."); }
     finally { setPending(false); }
   }
-  if (verificationEmail) return <div className="flex flex-col gap-4">
-    <Alert><AlertDescription>Check {verificationEmail} for a verification link. The link will bring you back here.</AlertDescription></Alert>
-    <Button variant="outline" disabled={pending} onClick={async () => {
-      setPending(true);setError("");
-      try {
-        const result=await authClient.sendVerificationEmail({ email: verificationEmail, callbackURL: `${window.location.origin}${nextPath}` });
-        if(result.error) setError(result.error.message || "Could not send verification email.");
-      } catch {setError("Could not send verification email. Try again.");} finally {setPending(false);}
-    }}>{pending && <Loader2 data-icon="inline-start" className="animate-spin" />}Resend verification email</Button>
-    {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
-    <Button variant="ghost" onClick={() => setVerificationEmail("")}>Back to sign in</Button>
-  </div>;
   return <div className="flex flex-col gap-5">
     <Tabs value={mode} onValueChange={value => {setMode(value);setError("");}}><TabsList className="w-full"><TabsTrigger value="login" className="flex-1">Sign in</TabsTrigger><TabsTrigger value="signup" className="flex-1">Create account</TabsTrigger></TabsList></Tabs>
     <form onSubmit={submit}>
@@ -59,7 +42,6 @@ export function LoginForm({ nextPath }: { nextPath: string }) {
         <Field><FieldLabel htmlFor="password">Password</FieldLabel><Input id="password" name="password" type="password" autoComplete={mode === "signup" ? "new-password" : "current-password"} minLength={mode === "signup" ? 10 : 1} maxLength={128} required />{mode === "signup" && <FieldDescription>At least 10 characters.</FieldDescription>}</Field>
         {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
         <Button type="submit" disabled={pending}>{pending && <Loader2 data-icon="inline-start" className="animate-spin" />}{mode === "signup" ? "Create account" : "Sign in"}</Button>
-        {mode === "login" && <Button variant="link" asChild><Link href="/forgot-password">Forgot password?</Link></Button>}
       </FieldGroup>
     </form>
   </div>;

@@ -6,7 +6,6 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth";
 import { getAppUrl } from "@/lib/app-url";
 import { pool, transaction } from "@/lib/db";
-import { sendBoardInvite } from "@/lib/mail";
 import type { ActionResult, Invite } from "@/lib/types";
 
 const id = z.uuid();
@@ -37,7 +36,7 @@ class ActionError extends Error {
 async function result<T>(run: (user: SignedInUser) => Promise<T>): Promise<ActionResult<T>> {
   try {
     const user = await requireUser().catch(() => {
-      throw new ActionError("Sign in with a verified email to continue.", "UNAUTHORIZED");
+      throw new ActionError("Sign in to continue.", "UNAUTHORIZED");
     });
     return { ok: true, data: await run(user) };
   } catch (error) {
@@ -263,37 +262,26 @@ export async function deleteTask(input: unknown): Promise<ActionResult> {
 
 export async function createInvite(input: unknown): Promise<ActionResult<{ url: string; emailed: boolean }>> {
   return result(async (user) => {
-    const values = boardInput.extend({ role, email: z.email().max(254).transform((email) => email.toLowerCase()).optional() }).parse(input);
+    const values = boardInput.extend({ role, email: z.never().optional() }).parse(input);
     const token = randomBytes(32).toString("base64url");
     const inviteId = randomUUID();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     const appUrl = await getAppUrl();
     const url = new URL(`/invite/${token}`, appUrl).toString();
-    const boardTitle = await transaction(async (client) => {
-      const board = await lockBoard(client, values.boardId, user.id, "owner");
-      const rateKeys = [`invite-owner:${user.id}`, ...(values.email ? [`invite-email:${values.email}`] : [])].sort();
-      for (const key of rateKeys) await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [key]);
+    await transaction(async (client) => {
+      await lockBoard(client, values.boardId, user.id, "owner");
+      await client.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [`invite-owner:${user.id}`]);
       const limits = await client.query(
-        `SELECT count(*) FILTER (WHERE created_by = $1)::int AS "ownerCount",
-          count(*) FILTER (WHERE email = $2)::int AS "emailCount"
-         FROM board_invite WHERE created_at > now() - interval '1 hour' AND (created_by = $1 OR email = $2)`,
-        [user.id, values.email ?? null],
+        `SELECT count(*)::int AS count FROM board_invite WHERE created_at > now() - interval '1 hour' AND created_by = $1`,
+        [user.id],
       );
-      const counts = z.object({ ownerCount: z.number(), emailCount: z.number() }).parse(limits.rows[0]);
-      if (counts.ownerCount >= 20 || counts.emailCount >= 3) throw new ActionError("Too many invitations. Try again in an hour.", "RATE_LIMITED");
-      await client.query(`INSERT INTO board_invite (id, board_id, created_by, token_hash, role, email, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-        [inviteId, values.boardId, user.id, createHash("sha256").update(token).digest("hex"), values.role, values.email ?? null, expiresAt]);
-      return board.title;
+      const { count } = z.object({ count: z.number() }).parse(limits.rows[0]);
+      if (count >= 20) throw new ActionError("Too many invitations. Try again in an hour.", "RATE_LIMITED");
+      await client.query(`INSERT INTO board_invite (id, board_id, created_by, token_hash, role, expires_at) VALUES ($1,$2,$3,$4,$5,$6)`,
+        [inviteId, values.boardId, user.id, createHash("sha256").update(token).digest("hex"), values.role, expiresAt]);
     });
-    if (values.email) {
-      try {
-        await sendBoardInvite({ to: values.email, inviterName: user.name, boardTitle, role: values.role, url, expiresAt });
-      } catch {
-        await pool.query(`UPDATE board_invite SET revoked_at = now() WHERE id = $1`, [inviteId]);
-        throw new ActionError("The invitation email could not be sent. Check email delivery settings and try again.", "EMAIL_FAILED");
-      }
-    }
-    return { url, emailed: Boolean(values.email) };
+
+    return { url, emailed: false };
   });
 }
 
@@ -338,10 +326,7 @@ export async function acceptInvite(input: unknown): Promise<ActionResult<{ board
       if (!inviteResult.rows[0]) throw new ActionError("This invitation has expired or been revoked.", "INVITE_INVALID");
       const invite = z.object({ role, email: z.string().nullable() }).parse(inviteResult.rows[0]);
       if (invite.email) {
-        const accountResult = await client.query(`SELECT email, "emailVerified" AS verified FROM "user" WHERE id = $1`, [user.id]);
-        const account = z.object({ email: z.string(), verified: z.boolean() }).parse(accountResult.rows[0]);
-        if (account.email.toLowerCase() !== invite.email) throw new ActionError("Sign in with the email address this invitation was sent to.", "EMAIL_MISMATCH");
-        if (!account.verified) throw new ActionError("Verify your email address before accepting this invitation.", "EMAIL_UNVERIFIED");
+        throw new ActionError("Email invitations are paused. Ask the owner for a share link.", "EMAIL_DISABLED");
       }
       if (ownerId !== user.id) {
         await client.query(

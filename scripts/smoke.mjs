@@ -7,9 +7,8 @@ import { z } from "zod";
 if (!process.env.DATABASE_URL) process.loadEnvFile(".env.local");
 
 const app = new URL(process.env.SMOKE_APP_URL ?? "http://localhost:3100");
-const mailbox = new URL(process.env.SMOKE_MAIL_URL ?? "http://localhost:8025");
 const database = new URL(process.env.DATABASE_URL);
-for (const target of [app, mailbox, database]) {
+for (const target of [app, database]) {
   assert(["localhost", "127.0.0.1", "[::1]"].includes(target.hostname), "Smoke checks require localhost services.");
 }
 
@@ -64,36 +63,16 @@ async function signIn(email, password) {
   return { ...value.user, cookies };
 }
 
-async function mailFor(email, subject) {
-  for (let attempt = 0; attempt < 30; attempt++) {
-    const list = await fetch(new URL("/api/v1/messages?limit=200", mailbox)).then(r => r.json());
-    const match = list.messages.find(message => message.Subject === subject && message.To.some(to => to.Address === email));
-    if (match) return fetch(new URL(`/api/v1/message/${match.ID}`, mailbox)).then(r => r.json());
-    await new Promise(resolve => setTimeout(resolve, 200));
-  }
-  throw new Error(`Expected ${subject} email did not arrive in Mailpit.`);
-}
-
-function mailLink(message, pathname) {
-  const links = `${message.Text}\n${message.HTML}`.match(/https?:\/\/[^\s<>"']+/g) ?? [];
-  const link = links.map(value => new URL(value.replaceAll("&amp;", "&"))).find(url => url.pathname.startsWith(pathname));
-  assert(link, "Expected actionable email link.");
-  assert.equal(link.origin, app.origin, "Email link points at this app.");
-  return link;
-}
-
 async function createUser(label) {
   const email = `smoke-${label}-${suffix}@twello.test`;
   const password = randomBytes(24).toString("base64url");
   const response = await authRequest("sign-up/email", { name: `Smoke ${label}`, email, password, callbackURL: "/" });
   assert.equal(response.status, 200, "Account signs up through Better Auth.");
-  const verification = mailLink(await mailFor(email, "Verify your Twello email"), "/api/auth/verify-email");
-  const verify = await fetch(verification, { redirect: "manual" });
-  assert([200, 302, 303].includes(verify.status), "Email verification link succeeds.");
+  assert(responseCookies(response).includes("session_token="), "Signup signs in immediately without email verification.");
   const account = await signIn(email, password);
-  assert.equal(account.emailVerified, true);
+  assert.equal(account.emailVerified, false);
   fixtures.users[label] = { id: account.id, email: account.email };
-  record(`${label} signs up, receives verification email, verifies and signs in`);
+  record(`${label} signs up and signs in without email verification`);
   return account;
 }
 
@@ -189,20 +168,16 @@ try {
   assert.equal(viewerBoard.members.filter(member => member.id === viewer.id).length, 1);
   await denied("createColumn", { boardId, title: "Viewer edit" }, "FORBIDDEN", viewer);
   await denied("createInvite", { boardId, role: "editor" }, "FORBIDDEN", viewer);
-  await denied("createInvite", { boardId, role: "editor", email: outsider.email }, "FORBIDDEN", viewer);
   await denied("listInvites", { boardId }, "FORBIDDEN", viewer);
   record("shared viewer link accepts idempotently and viewers cannot edit or manage invitations");
 
-  const editorInvite = z.object({ url: z.url(), emailed: z.boolean() }).parse(await success("createInvite", { boardId, role: "editor", email: editor.email }));
-  assert.equal(editorInvite.emailed, true);
-  const invitation = await mailFor(editor.email, `${owner.name} invited you to ${board.board.title}`);
-  const emailedLink = mailLink(invitation, "/invite/");
-  assert.equal(emailedLink.toString(), editorInvite.url);
+  const editorInvite = z.object({ url: z.url(), emailed: z.boolean() }).parse(await success("createInvite", { boardId, role: "editor" }));
+  assert.equal(editorInvite.emailed, false);
   const token = inviteToken(editorInvite);
-  await denied("acceptInvite", { token }, "EMAIL_MISMATCH", outsider);
   await success("acceptInvite", { token }, editor);
   assert.equal((await snapshot(boardId, editor)).board.role, "editor");
-  record("email invitation delivers the exact board link and only its verified recipient accepts");
+  await denied("createInvite", { boardId, role: "editor", email: outsider.email }, "VALIDATION");
+  record("editor share links work and email invitations are disabled");
 
   const taskInput = { boardId, columnId: board.columns[0].id, title: "Ship the collaboration flow", description: "Verify assignments, completion and conflict protection", color: "yellow", dueDate: "2026-10-30", assigneeId: editor.id };
   await success("createTask", taskInput, editor);
@@ -244,8 +219,8 @@ try {
   assert.equal((await snapshot(boardId, editor)).board.role, "viewer");
   await denied("createColumn", { boardId, title: "Regained edit" }, "FORBIDDEN", editor);
   record("reaccepting an old editor invitation does not undo an owner demotion");
-  const invites = z.array(z.object({ id: z.uuid(), email: z.string().nullable() })).parse(await success("listInvites", { boardId }));
-  const editorInviteRow = invites.find(invite => invite.email === editor.email);
+  const invites = z.array(z.object({ id: z.uuid(), email: z.string().nullable(), role: z.string() })).parse(await success("listInvites", { boardId }));
+  const editorInviteRow = invites.find(invite => invite.role === "editor");
   assert(editorInviteRow);
   await success("revokeInvite", { boardId, inviteId: editorInviteRow.id });
   await denied("acceptInvite", { token }, "INVITE_INVALID", editor);
