@@ -11,7 +11,7 @@ const snapshotSchema = z.object({
   board: z.object({ id: z.string(), title: z.string(), description: z.string(), color, role, updatedAt: z.string(), taskCount: z.number(), completedCount: z.number(), memberCount: z.number() }),
   columns: z.array(z.object({ id: z.string(), title: z.string(), position: z.number(), isDone: z.boolean() })),
   tasks: z.array(z.object({ id: z.string(), boardId: z.string(), columnId: z.string(), title: z.string(), description: z.string(), color, position: z.number(), dueDate: z.string().nullable(), assigneeId: z.string().nullable(), version: z.number(), createdAt: z.string() })),
-  members: z.array(z.object({ id: z.string(), name: z.string(), email: z.string(), image: z.string().nullable(), role })), revision: z.number(),
+  members: z.array(z.object({ id: z.string(), name: z.string(), image: z.string().nullable(), role })), revision: z.number(),
 });
 export type RunBoardAction = <T>(work: () => Promise<ActionResult<T>>) => Promise<ActionResult<T>>;
 

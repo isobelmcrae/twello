@@ -19,7 +19,7 @@ const taskSchema = z.object({
   assigneeId: z.string().nullable(), version: z.number(), createdAt: timestamp,
 });
 const memberSchema = z.object({
-  id: z.string(), name: z.string(), email: z.string(), image: z.string().nullable(),
+  id: z.string(), name: z.string(), image: z.string().nullable(),
   role: z.enum(["owner", "editor", "viewer"]),
 });
 
@@ -58,10 +58,10 @@ export async function getBoard(boardId: string, userId: string): Promise<BoardSn
       [boardId],
     );
     const members = await client.query(
-      `SELECT u.id, u.name, u.email, u.image, 'owner' AS role FROM "user" u
+      `SELECT u.id, u.name, u.image, 'owner' AS role FROM "user" u
          JOIN board b ON b.owner_id = u.id WHERE b.id = $1
        UNION ALL
-       SELECT u.id, u.name, u.email, u.image, m.role FROM "user" u
+       SELECT u.id, u.name, u.image, m.role FROM "user" u
          JOIN board_member m ON m.user_id = u.id WHERE m.board_id = $1`,
       [boardId],
     );
@@ -78,13 +78,13 @@ export async function getInvitePreview(token: string): Promise<InvitePreview | n
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return null;
   const tokenHash = createHash("sha256").update(token).digest("hex");
   const result = await pool.query(
-    `SELECT b.title, i.role, i.email, i.expires_at AS "expiresAt"
+    `SELECT b.title, i.role, i.expires_at AS "expiresAt"
      FROM board_invite i JOIN board b ON b.id = i.board_id
-     WHERE i.token_hash = $1 AND i.revoked_at IS NULL AND i.expires_at > now()`,
+     WHERE i.token_hash = $1 AND i.email IS NULL AND i.revoked_at IS NULL AND i.expires_at > now()`,
     [tokenHash],
   );
   if (!result.rows[0]) return null;
-  return z.object({ title: z.string(), role: z.enum(["viewer", "editor"]), email: z.string().nullable(), expiresAt: timestamp })
+  return z.object({ title: z.string(), role: z.enum(["viewer", "editor"]), expiresAt: timestamp })
     .parse(result.rows[0]);
 }
 

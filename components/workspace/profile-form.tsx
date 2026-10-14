@@ -24,7 +24,7 @@ export function ProfileForm({ user, profile }: { user: User; profile: Profile })
     <form className="max-w-xl" onSubmit={async event => {
       event.preventDefault(); setPending(true);
       try { const result = await saveProfile({ name: name.trim(), image: image.trim() || null, bio, avatarColor }); if (!result.ok) { toast.error(result.error); return; } toast.success("Profile saved."); router.refresh(); } catch { toast.error("Could not save your profile. Try again."); } finally { setPending(false); }
-    }}><Card><CardHeader><CardTitle>Personal details</CardTitle><CardDescription>Your email address is {user.email}.</CardDescription></CardHeader><CardContent><FieldGroup>
+    }}><Card><CardHeader><CardTitle>Personal details</CardTitle><CardDescription>Choose how you appear on your boards.</CardDescription></CardHeader><CardContent><FieldGroup>
       <Field><FieldLabel>Profile preview</FieldLabel><div className="profile-preview" data-color={avatarColor}><UserAvatar user={{ name, image: image || null }} size="lg" /><div><strong>{name || "Your name"}</strong><p>{bio || "A little about you."}</p></div></div></Field>
       <Field><FieldLabel htmlFor="profile-name">Name</FieldLabel><Input id="profile-name" required maxLength={80} autoComplete="name" value={name} onChange={event => setName(event.target.value)} disabled={pending} /></Field>
       <Field><FieldLabel htmlFor="profile-bio">About you</FieldLabel><Textarea id="profile-bio" maxLength={500} value={bio} onChange={event => setBio(event.target.value)} placeholder="What do you do on the team?" disabled={pending} /></Field>

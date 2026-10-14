@@ -290,9 +290,9 @@ export async function listInvites(input: unknown): Promise<ActionResult<Invite[]
     const { boardId } = boardInput.parse(input);
     return transaction(async (client) => {
       await lockBoard(client, boardId, user.id, "owner");
-      const invites = await client.query(`SELECT id, role, email, expires_at AS "expiresAt", created_at AS "createdAt"
-        FROM board_invite WHERE board_id = $1 AND revoked_at IS NULL AND expires_at > now() ORDER BY created_at DESC`, [boardId]);
-      return z.object({ id: z.string(), role, email: z.string().nullable(),
+      const invites = await client.query(`SELECT id, role, expires_at AS "expiresAt", created_at AS "createdAt"
+        FROM board_invite WHERE board_id = $1 AND email IS NULL AND revoked_at IS NULL AND expires_at > now() ORDER BY created_at DESC`, [boardId]);
+      return z.object({ id: z.string(), role,
         expiresAt: z.date().transform((date) => date.toISOString()), createdAt: z.date().transform((date) => date.toISOString()),
       }).array().parse(invites.rows);
     });

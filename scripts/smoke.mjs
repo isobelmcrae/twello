@@ -117,7 +117,9 @@ async function snapshot(boardId, account = owner, expectedStatus = 200) {
   const response = await fetch(new URL(`/api/boards/${boardId}`, app), { headers: { Cookie: account?.cookies ?? "" } });
   assert.equal(response.status, expectedStatus, "Board snapshot HTTP status.");
   if (expectedStatus !== 200) return;
-  return snapshotSchema.parse(await response.json());
+  const payload = await response.json();
+  assert(payload.members.every(member => !("email" in member)), "Board responses do not expose member email addresses.");
+  return snapshotSchema.parse(payload);
 }
 
 async function createBoard(title) {
@@ -219,7 +221,7 @@ try {
   assert.equal((await snapshot(boardId, editor)).board.role, "viewer");
   await denied("createColumn", { boardId, title: "Regained edit" }, "FORBIDDEN", editor);
   record("reaccepting an old editor invitation does not undo an owner demotion");
-  const invites = z.array(z.object({ id: z.uuid(), email: z.string().nullable(), role: z.string() })).parse(await success("listInvites", { boardId }));
+  const invites = z.array(z.object({ id: z.uuid(), role: z.string() })).parse(await success("listInvites", { boardId }));
   const editorInviteRow = invites.find(invite => invite.role === "editor");
   assert(editorInviteRow);
   await success("revokeInvite", { boardId, inviteId: editorInviteRow.id });
