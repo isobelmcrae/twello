@@ -1,0 +1,54 @@
+x-zenith:
+  catalog:
+    name: Twello
+    description: Private shared kanban boards with sticky notes, task assignments, and email invitations.
+    authors: [Isobel]
+    source: https://github.com/isobelmcrae/twello
+    license: UNLICENSED
+    tags: [productivity, kanban, nextjs, postgres]
+  expose:
+    - { service: web, port: 3000, web: true }
+  env:
+    PGPASSWORD:
+      generate: '([A-Za-z0-9_-]{16})([A-Za-z0-9_-]{16})'
+      services: [web]
+    POSTGRES_PASSWORD:
+      alias: PGPASSWORD
+      services: [db]
+    BETTER_AUTH_SECRET:
+      generate: '([A-Za-z0-9_-]{16})([A-Za-z0-9_-]{16})([A-Za-z0-9_-]{16})'
+      services: [web]
+    BETTER_AUTH_URL: ZENITH_PUBLIC_URL
+    SMTP_HOST: ZENITH_SMTP_HOST
+    SMTP_PORT: ZENITH_SMTP_PORT
+    SMTP_USERNAME: ZENITH_SMTP_USER
+    SMTP_PASSWORD: ZENITH_SMTP_PASS
+    SMTP_FROM: ZENITH_SMTP_FROM
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: twello
+      PGDATABASE: twello
+      SMTP_SECURE: "false"
+    depends_on:
+      db:
+        condition: service_healthy
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: twello
+      POSTGRES_DB: twello
+    volumes:
+      - twello_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U twello -d twello"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  twello_data:

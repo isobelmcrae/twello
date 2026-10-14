@@ -1,0 +1,46 @@
+x-zenith:
+  catalog:
+    name: Twello
+    description: Private shared kanban boards with sticky notes, task assignments, and email invitations.
+    authors: [Isobel]
+    source: https://github.com/isobelmcrae/twello
+    license: UNLICENSED
+    tags: [productivity, kanban, nextjs, postgres]
+  expose:
+    - { service: web, port: 3000, web: true }
+services:
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: twello
+      PGDATABASE: twello
+      SMTP_SECURE: "false"
+      SMTP_HOST: mail
+      SMTP_PORT: "1025"
+      SMTP_FROM: "Twello <hello@twello.local>"
+    depends_on:
+      db:
+        condition: service_healthy
+  mail:
+    image: axllent/mailpit:v1.29
+    environment:
+      MP_WEBROOT: /preview-inbox/
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: twello
+      POSTGRES_DB: twello
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - twello_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U twello -d twello"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+volumes:
+  twello_data:
