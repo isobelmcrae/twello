@@ -24,7 +24,7 @@ x-zenith:
 
 services:
   web:
-    image: ghcr.io/isobelmcrae/twello:7735330e33c7a1b21ac3f5b97bd3e293462ee76b
+    image: ghcr.io/isobelmcrae/twello@sha256:ac2d1f1fed92fd675128f3afd72cbd4024f14ff46a74638ad8163b82f14944f7
     ports:
       - "3000:3000"
     environment:
